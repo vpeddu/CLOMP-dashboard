@@ -9,6 +9,7 @@
 
 library(shiny)
 library(c3)
+library(formattable)
 
 # Define UI for application that draws a histogram
 
@@ -19,10 +20,18 @@ ui <- fluidPage(
 
     
     numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 200, min = 1),
+    
+    
     checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL), 
     # Sidebar with a slider input for number of bins 
    
-           c3Output("RPM_plot",width = "100%", height = 'auto')
+           c3Output("RPM_plot",width = "100%", height = 'auto'), 
+    
+    titlePanel("Comparison"),
+    numericInput("Comparison_threshold", "Minmum RPM threshold for filtering", 10, min = 1),
+    
+            box(formattableOutput("table"))
+    
     )
 
 
@@ -100,7 +109,7 @@ server <- function(input, output, session) {
             final_tsv_zero_removed<-final_tsv
         }
         
-        taxa_filtered<-final_tsv_zero_removed[which(final_tsv_zero_removed$taxa == taxa_class),]
+        taxa_filtered<-final_tsv_zero_removed[which(grepl(taxa_class,final_tsv_zero_removed$taxa)),]
         # 
         # sample_list<-c()
         # taxa_list<-c()
@@ -130,12 +139,12 @@ server <- function(input, output, session) {
     
     filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/remove_euk_test'
   
-    output$RPM_plot <- renderC3({
-            
         df<-(prep_data(filepath, 'S'))
         colnames(df)<-gsub("\t", "", colnames(df))
         df$name<-trimws(df$name, which = c("left"), whitespace = "[ \t\n]")
         
+    output$RPM_plot <- renderC3({
+            
         
         to_remove<-c()
         
@@ -178,11 +187,32 @@ server <- function(input, output, session) {
                 c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
                 tooltip( grouped = FALSE) %>%
                 xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
+                yAxis(label = 'log10(RPM)') %>%
                 legend(position = 'right') %>%
-                zoom(type = 'scroll') %>% 
+                zoom(type = 'scroll')
             }
     })
     
+    
+    output$table <- renderFormattable({
+        
+        comparison_df<-(prep_data(filepath, '*'))
+        #comparison_df$taxa 
+        to_remove<-c()
+        
+        for(i in 1:nrow(comparison_df)){ 
+            if(all(comparison_df[i,(4:ncol(comparison_df))] < input$Comparison_threshold)){ 
+                to_remove<-append(to_remove, i)
+            }
+        }
+        if(length(to_remove > 0)){
+            comparison_df<-comparison_df[-to_remove,]
+        }
+        
+        #works but can't sort. Probably need to add buttons to patch it together (formattable is static and datatable is uggo)
+        formattable(as.data.frame(comparison_df))
+        
+        })
 }
 
 # Run the application 
