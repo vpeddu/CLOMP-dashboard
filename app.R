@@ -18,7 +18,7 @@ ui <- fluidPage(
     titlePanel("RPM values across all samples"),
 
     
-    numericInput("RPM_threshold", "Minmum RPM threshold:", 200, min = 1),
+    numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 200, min = 1),
     checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL), 
     # Sidebar with a slider input for number of bins 
    
@@ -40,18 +40,18 @@ server <- function(input, output, session) {
             }
             return(temp_rpm)
         }
-        
+            
         
         
         for(i in 1:length(files)){
-            print(files[i])
+            #print(files[i])
             temp_tsv<-read.csv(files[i], sep = "\t", col.names = c('percent_clade_reads', 'number_clade_reads_rooted_at_taxon','number_clade_reads_this_taxon', 'taxa', 'taxid', 'name'), header = FALSE)
             total_reads = temp_tsv$number_clade_reads_rooted_at_taxon[2] + temp_tsv$number_clade_reads_rooted_at_taxon[1]
             temp_tsv$RPM = temp_tsv$number_clade_reads_this_taxon  / (total_reads / 1e6)
             temp_tsv$cumulative_RPM<-temp_tsv$number_clade_reads_rooted_at_taxon / (total_reads / 1e6)
             temp_tsv$taxa<-trimws(temp_tsv$taxa , which = "both", whitespace = "\t")
             temp_tsv$name<-as.character(temp_tsv$name)
-            file_name = strsplit(files[i],"_final")[[1]][1]
+            file_name = strsplit(files[i],"_L001")[[1]][1]
             
             #initialize dataframe for below
             if( i == 1 ){ 
@@ -128,7 +128,7 @@ server <- function(input, output, session) {
         return(taxa_filtered)
     }
     
-    filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/sm_pavians'
+    filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/remove_euk_test'
   
     output$RPM_plot <- renderC3({
             
@@ -155,28 +155,31 @@ server <- function(input, output, session) {
         
         df<-df[,c(2:ncol(df))]
         data_df<-t(df[,c(3:ncol(df))])
-        colnames(data_df)<-df[,2]
+        colnames(data_df)<-as.character(df[,2])
         #colnames(data_df)<-gsub("[[:space:]]", "", colnames(data_df))
-        sample_names<-rownames(data_df)
+        sample_names<-as.character(rownames(data_df))
         #taxa_names<-gsub("[[:space:]]", "", colnames(data_df))
+        data_df<-log10(data_df + 1)
+        
+        
         
         if(input$show_subchart){ 
         data.frame(data_df) %>%
             c3() %>% 
-            c3_bar(stacked = TRUE, rotated = FALSE)%>% 
+            c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
             tooltip( grouped = FALSE) %>%
             xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
-            legend(position = 'bottom') %>%
+            legend(position = 'right') %>%
             zoom(type = 'scroll') %>% 
             subchart(height = 60) 
         }
         else {        data.frame(data_df) %>%
                 c3() %>% 
-                c3_bar(stacked = TRUE, rotated = FALSE)%>% 
+                c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
                 tooltip( grouped = FALSE) %>%
                 xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
-                legend(position = 'bottom') %>%
-                zoom(type = 'scroll')
+                legend(position = 'right') %>%
+                zoom(type = 'scroll') %>% 
             }
     })
     
