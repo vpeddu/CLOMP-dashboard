@@ -1,55 +1,27 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+---
+title: "CLOMP dashboard"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
 
+---
+
+# loading data and functions
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
 library(shiny)
 library(c3)
 library(formattable)
+library(DT)
+library(reactable)
 
-# Define UI for application that draws a histogram
-
-ui <- fluidPage(
-
-    # Application title
-    titlePanel("RPM values across all samples"),
-
-    
-    numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 200, min = 1),
-    
-    
-    checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL), 
-    # Sidebar with a slider input for number of bins 
-   
-           c3Output("RPM_plot",width = "100%", height = 'auto'), 
-    
-    titlePanel("Comparison"),
-    numericInput("Comparison_threshold", "Minmum RPM threshold for filtering", 10, min = 1)
-    
-    
-    
-    )
-
-
-# Define server logic required to draw a histogram
-server <- function(input, output, session) {
     prep_data<-function(path, taxa_class){
-        setwd(path)
+        #setwd(path)
         
-        files<-list.files(pattern = '*.tsv')
+        files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
         
-        taxa_detect<-function(df, taxid){ 
-            temp_rpm<-df$RPM[which(df$taxid == taxid)]
-            if(identical(temp_rpm, numeric(0))){ 
-                temp_rpm <- 0
-            }
-            return(temp_rpm)
-        }
-            
+ 
         
         
         for(i in 1:length(files)){
@@ -109,7 +81,7 @@ server <- function(input, output, session) {
             final_tsv_zero_removed<-final_tsv
         }
         
-        taxa_filtered<-final_tsv_zero_removed[which(grepl(taxa_class,final_tsv_zero_removed$taxa)),]
+        taxa_filtered<-final_tsv_zero_removed[which(grepl(paste(taxa_class,collapse="|"),final_tsv_zero_removed$taxa)),]
         # 
         # sample_list<-c()
         # taxa_list<-c()
@@ -136,14 +108,27 @@ server <- function(input, output, session) {
         
         return(taxa_filtered)
     }
-    
-    filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/remove_euk_test'
+ filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/remove_euk_test/'
   
         df<-(prep_data(filepath, 'S'))
         colnames(df)<-gsub("\t", "", colnames(df))
         df$name<-trimws(df$name, which = c("left"), whitespace = "[ \t\n]")
-        
-    output$RPM_plot <- renderC3({
+
+
+```
+
+
+-------------------------------------
+    
+### RPM overview chart
+    
+```{r,fig.height=6}
+       titlePanel("RPM overview")
+
+    numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 200, min = 1)
+    checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL)
+
+    renderC3({
             
         
         to_remove<-c()
@@ -161,7 +146,13 @@ server <- function(input, output, session) {
         
         #comment out when done with test_set
         
-        
+        trimmed_colnames<-c()
+        for(i in 1:length(colnames(df))){ 
+          if(grepl('//',colnames(df)[i])){
+          trimmed_colnames<-append(trimmed_colnames,strsplit(colnames(df)[i], '//')[[1]][2])
+          }
+        }
+        colnames(df)[4:ncol(df)]<-trimmed_colnames
         df<-df[,c(2:ncol(df))]
         data_df<-t(df[,c(3:ncol(df))])
         colnames(data_df)<-as.character(df[,2])
@@ -178,9 +169,9 @@ server <- function(input, output, session) {
             c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
             tooltip( grouped = FALSE) %>%
             xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
-            legend(position = 'right') %>%
+            legend(position = 'bottom') %>%
             zoom(type = 'scroll') %>% 
-            subchart(height = 60) 
+            subchart(height = 60)
         }
         else {        data.frame(data_df) %>%
                 c3() %>% 
@@ -188,15 +179,26 @@ server <- function(input, output, session) {
                 tooltip( grouped = FALSE) %>%
                 xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
                 yAxis(label = 'log10(RPM)') %>%
-                legend(position = 'right') %>%
-                zoom(type = 'scroll')
+                legend(position = 'bottom') %>%
+                zoom(type = 'scroll') 
             }
     })
-    
-    
-    output$table <- renderFormattable({
-        
-     
+
+```
+   
+ 
+-------------------------------------
+
+   
+### RPM table
+
+
+```{r, fig.height= 10} 
+numericInput("Comparison_threshold", "Minmum RPM threshold for filtering", 10, min = 1)
+checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S'), selected = c('D','P','C','O','F','G','S'), inline = TRUE)
+renderReactable({
+  
+        comparison_df<-(prep_data(filepath, input$phyloRank))
         #comparison_df$taxa 
         to_remove<-c()
         
@@ -208,13 +210,52 @@ server <- function(input, output, session) {
         if(length(to_remove > 0)){
             comparison_df<-comparison_df[-to_remove,]
         }
-        
+        trimmed_colnames<-c()
+        for(i in 1:length(colnames(comparison_df))){ 
+          if(grepl('//',colnames(comparison_df)[i])){
+          trimmed_colnames<-append(trimmed_colnames,strsplit(colnames(comparison_df)[i], '//')[[1]][2])
+          }
+        }
+        colnames(comparison_df)[4:ncol(comparison_df)]<-trimmed_colnames
+        #comparison_df[4:ncol(comparison_df)]<-round(comparison_df[4:ncol(comparison_df)],0)
         #works but can't sort. Probably need to add buttons to patch it together (formattable is static and datatable is uggo)
-        formattable(as.data.frame(comparison_df))
+        #datatable(formattable(comparison_df))
         
-        })
-}
+        graph_df<-comparison_df[,-c(1:2)]
+        rownames(graph_df)<-graph_df[,1]
+        graph_df$name<-NULL
+GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
+        reactable(graph_df,
+                  defaultColDef = colDef(
+                  style = function(value) {
+                    if (!is.numeric(value)) return()
+                    normalized <- (value - min(graph_df)) / (max(graph_df) - min(graph_df))
+                    color <- GnYlRd(normalized)
+                    list(background = color)
+                  },
+                  format = colFormat(digits = 1),
+                  minWidth = 50
+                ),
+                searchable = TRUE, 
+                height = 500,
+                bordered = FALSE,
+                outlined = FALSE,
+                resizable = TRUE,
+                highlight = TRUE,
+                fullWidth = TRUE,
+                columns = list(
+    .rownames = colDef(name = "Taxa", sortable = TRUE, align = "left",
+    cell = function(value, index) {
+    # Render as a link
+    url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxid[index])
+    htmltools::tags$a(href = url, target = "_blank", as.character(value))
+    #https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=5606&lvl=3&lin=f&keep=1&srchmode=1&unlock
+  })
+        ))
 
-# Run the application 
-shinyApp(ui = ui, server = server)
+})
 
+
+```   
+ 
+#SANKEY TIME YO
