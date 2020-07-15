@@ -3,11 +3,12 @@ title: "CLOMP dashboard"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
-    vertical_layout: scroll
+    css: styles.css
+    #vertical_layout: scroll,
 
 ---
 
-# loading data and functions
+
 ```{r global, include=FALSE}
 # load data in 'global' chunk so it can be shared by all users of the dashboard
 library(shiny)
@@ -15,104 +16,78 @@ library(c3)
 library(formattable)
 library(DT)
 library(reactable)
+library(pavian)
+library(shinyHeatmaply)
+library(Cairo)
+library(collapsibleTree) 
+library(tidyverse)
+library(viridis)
+library(visNetwork)
+
 
     prep_data<-function(path, taxa_class){
-        #setwd(path)
+      path <- '/Users/vikas/Downloads/clomp_vis_testing'
+        setwd(path)
         
         files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
         
- 
+        reports<-read_reports(files)
         
+        filenames<-strsplit(basename(files), '[.]')
+
+        reports_merged<-as.data.frame(merge_reports2(reports,fix_taxnames = TRUE, col_names = filenames))
         
-        for(i in 1:length(files)){
-            #print(files[i])
-            temp_tsv<-read.csv(files[i], sep = "\t", col.names = c('percent_clade_reads', 'number_clade_reads_rooted_at_taxon','number_clade_reads_this_taxon', 'taxa', 'taxid', 'name'), header = FALSE)
-            total_reads = temp_tsv$number_clade_reads_rooted_at_taxon[2] + temp_tsv$number_clade_reads_rooted_at_taxon[1]
-            temp_tsv$RPM = temp_tsv$number_clade_reads_this_taxon  / (total_reads / 1e6)
-            temp_tsv$cumulative_RPM<-temp_tsv$number_clade_reads_rooted_at_taxon / (total_reads / 1e6)
-            temp_tsv$taxa<-trimws(temp_tsv$taxa , which = "both", whitespace = "\t")
-            temp_tsv$name<-as.character(temp_tsv$name)
-            file_name = strsplit(files[i],"_L001")[[1]][1]
-            
-            #initialize dataframe for below
-            if( i == 1 ){ 
-                final_tsv<-temp_tsv[,c(4,5,6,8)] 
-                colnames(final_tsv)[4]<-file_name
-            }
-            
-            else{ 
-                final_tsv[,(i+3)]<-0
-                new_list<-c()
-                for(j in 1:nrow(temp_tsv)){ 
-                    #index is which row of the current pavian tsv equals the current taxid
-                    index<-which(temp_tsv[j,5] == final_tsv[,2])
-                    
-                    if(identical(index, integer(0))){ 
-                        final_tsv[(nrow(final_tsv)+ 2), ]<- 0
-                        final_tsv[nrow(final_tsv),1]<-temp_tsv[j,4]
-                        final_tsv[nrow(final_tsv),2]<-temp_tsv[j,5]
-                        final_tsv[nrow(final_tsv),3]<-as.character(temp_tsv[j,6])
-                        final_tsv[nrow(final_tsv),ncol(final_tsv)]<-temp_tsv[j,8]
-                        
-                        next
-                    }
-                    else{ 
-                        final_tsv[index,i+3]<-temp_tsv[j,8]
-                    }
-                    colnames(final_tsv)[i+3]<-file_name
-                }
-            }
+        keep<-which(grepl('clade',colnames(reports_merged)))
+        
+        only_clade<-reports_merged[,c(1:4, keep)]
+        
+        #colnames(only_clade)[keep] <- strsplit(colnames(only_clade), 'f')
+        
+        new_colnames<-c()
+        for(i in 5:length(colnames(only_clade))){ 
+          #print(colnames(only_clade[i]))
+          first<-strsplit(colnames(only_clade)[i],'[..]')[[1]][4]
+          new_colnames<-append(new_colnames,first)
         }
+        colnames(only_clade)[keep]<-new_colnames
+        colnames(only_clade)[1:4]<-c('name','rank','taxID','lineage')
         
         
+        final_tsv<-only_clade
+        
+        for(i in 5:ncol(only_clade)){ 
+          final_tsv[,i]<-only_clade[,i] / ((only_clade[1,i] + only_clade[2,i] ) / 1e6) 
+        }
+
+ 
         final_tsv<-final_tsv[complete.cases(final_tsv),]
         
         to_remove<-c()
         
         for(i in 1:nrow(final_tsv)){ 
-            if( all(final_tsv[i,3:ncol(final_tsv)] == 0 )){ 
+            if( all(final_tsv[i,5:ncol(final_tsv)] == 0 )){ 
                 to_remove<-append(to_remove, i)
             }
         }
         if(length(to_remove > 0)){
             final_tsv_zero_removed<-final_tsv[-to_remove,]
-        }
-        else{
+         } else{
             final_tsv_zero_removed<-final_tsv
-        }
+          }
         
-        taxa_filtered<-final_tsv_zero_removed[which(grepl(paste(taxa_class,collapse="|"),final_tsv_zero_removed$taxa)),]
-        # 
-        # sample_list<-c()
-        # taxa_list<-c()
-        # rpm_list<-c()
-        # taxid_list<-c()
-        # name_list<-c()
-        # for(i in 1:nrow(final_tsv_zero_removed)){ 
-        #     for(j in 4:ncol(final_tsv_zero_removed)){ 
-        #         sample_list<-append(sample_list,colnames(final_tsv_zero_removed)[j])
-        #         taxa_list<-append(taxa_list,final_tsv_zero_removed[i,1])
-        #         rpm_list<-append(rpm_list,final_tsv_zero_removed[i,j])
-        #         taxid_list<-append(taxid_list,final_tsv_zero_removed[i,2])
-        #         name_list<-append(name_list, final_tsv_zero_removed[i,3])
-        #     }  
-        # }
-        # accumulated_df<-as.data.frame(cbind(sample_list,taxa_list,rpm_list,taxid_list,name_list))
-        # graph_df<-accumulated_df[which(accumulated_df$taxa_list == 'G'),]
-        # 
-        # graph_df$rpm_list<-as.numeric(as.character(graph_df$rpm_list))
-        # graph_df$rpm_list<-round(graph_df$rpm_list, digits = 0)
-        # 
-        # graph_df$taxid_list<-as.character(graph_df$taxid_list)
-        # graph_df<-graph_df[-which(graph_df$taxid_list == '9605'),]
+        taxa_filtered<-final_tsv_zero_removed[which(grepl(paste(taxa_class,collapse="|"),final_tsv_zero_removed$rank)),]
+        
         
         return(taxa_filtered)
     }
- filepath  = '/Users/vikas/Documents/UW/Greninger_lab/clomp_viz/scratch/remove_euk_test/'
+ filepath  = '~/Downloads/scratch/new/'
   
-        df<-(prep_data(filepath, 'S'))
+        df<-(prep_data(filepath, 'G'))
         colnames(df)<-gsub("\t", "", colnames(df))
         df$name<-trimws(df$name, which = c("left"), whitespace = "[ \t\n]")
+        
+# global data frame of RPM values with name, lineage, rank, and sample names
+comparison_df<-(prep_data(filepath, "*"))
 
 
 ```
@@ -120,69 +95,67 @@ library(reactable)
 
 -------------------------------------
     
-### RPM overview chart
+# RPM overview chart
     
-```{r,fig.height=6}
+```{r,fig.height=8}
        titlePanel("RPM overview")
 
-    numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 200, min = 1)
+    numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 100, min = 1)
     checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL)
-
-    renderC3({
-            
-        
-        to_remove<-c()
-        
-        for(i in 1:nrow(df)){ 
-            if(all(df[i,(4:ncol(df))] < input$RPM_threshold)){ 
-                to_remove<-append(to_remove, i)
-            }
-        }
-        if(length(to_remove > 0)){
-            df<-df[-to_remove,]
-        }
-        
-        
-        
-        #comment out when done with test_set
-        
-        trimmed_colnames<-c()
-        for(i in 1:length(colnames(df))){ 
-          if(grepl('//',colnames(df)[i])){
-          trimmed_colnames<-append(trimmed_colnames,strsplit(colnames(df)[i], '//')[[1]][2])
+    checkboxGroupInput('Heatmap_rank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('G'), inline = TRUE)
+    
+    
+    show_list<-c()
+    x <- reactive({
+      z<-comparison_df[comparison_df$rank == input$Heatmap_rank,]
+      
+      for(i in 1:nrow(z)){
+      if( any(z[i,5:ncol(z)] > input$RPM_threshold)){
+        show_list<-append(i, show_list)
           }
         }
-        colnames(df)[4:ncol(df)]<-trimmed_colnames
-        df<-df[,c(2:ncol(df))]
-        data_df<-t(df[,c(3:ncol(df))])
-        colnames(data_df)<-as.character(df[,2])
-        #colnames(data_df)<-gsub("[[:space:]]", "", colnames(data_df))
-        sample_names<-as.character(rownames(data_df))
-        #taxa_names<-gsub("[[:space:]]", "", colnames(data_df))
-        data_df<-log10(data_df + 1)
-        
-        
-        
-        if(input$show_subchart){ 
-        data.frame(data_df) %>%
-            c3() %>% 
-            c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
-            tooltip( grouped = FALSE) %>%
-            xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
-            legend(position = 'bottom') %>%
-            zoom(type = 'scroll') %>% 
-            subchart(height = 60)
-        }
-        else {        data.frame(data_df) %>%
-                c3() %>% 
-                c3_bar(stacked = FALSE, rotated = FALSE, zerobased = TRUE)%>% 
-                tooltip( grouped = FALSE) %>%
-                xAxis( type = 'category', categories = sample_names, rotate = 45)  %>%
-                yAxis(label = 'log10(RPM)') %>%
-                legend(position = 'bottom') %>%
-                zoom(type = 'scroll') 
-            }
+    show_list<-unique(show_list)
+    final<-z[show_list,]
+      final
+    
     })
+    renderPlotly({
+    heatmap_df<-x()
+    
+    #return(x)
+    #heatmap_df <- heatmap_df[,5:ncol(heatmap_df)]
+     
+
+    # for(i in 5:ncol(heatmap_df)){
+    #   show_list<-append(show_list,rownames(heatmap_df[order(heatmap_df[,i],decreasing=T)[1:10],]))
+    # }
+# 
+    rownames(heatmap_df)<-heatmap_df$name
+    heatmap_df[,1:4]<-NULL
+    heatmap_mat<-as.matrix(heatmap_df)
+    heatmap_mat<-log10(heatmap_mat)
+    heatmaply(heatmap_mat,
+        dendrogram = "none",
+        xlab = "", ylab = "",
+        main = "",
+        scale = "column",
+        #margins = c(60,100,40,20),
+        #grid_color = "white",
+        grid_width = 0.00001,
+        titleX = FALSE,
+        hide_colorbar = TRUE,
+        branches_lwd = 0.1,
+        label_names = c("Taxa", "Sample", "Log(RPM)"),
+        fontsize_row = 5, 
+        #fontsize_col = 5,
+          #subplot_heights=c(0.05, 0.95),
+        #margins = (c(10,10,10,10)),
+        
+        heatmap_layers = theme(axis.line=element_blank())
+         ) %>% layout(width=1500, height = 500)
+    })
+      #comparison_df
+ 
 
 ```
    
@@ -190,51 +163,32 @@ library(reactable)
 -------------------------------------
 
    
-### RPM table
+# RPM table
 
 
 ```{r, fig.height= 10} 
 numericInput("Comparison_threshold", "Minmum RPM threshold for filtering", 10, min = 1)
-checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S'), selected = c('D','P','C','O','F','G','S'), inline = TRUE)
+checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('D','P','C','O','F','G','S','-'), inline = TRUE)
 renderReactable({
   
-        comparison_df<-(prep_data(filepath, input$phyloRank))
         #comparison_df$taxa 
-        to_remove<-c()
-        
-        for(i in 1:nrow(comparison_df)){ 
-            if(all(comparison_df[i,(4:ncol(comparison_df))] < input$Comparison_threshold)){ 
-                to_remove<-append(to_remove, i)
-            }
-        }
-        if(length(to_remove > 0)){
-            comparison_df<-comparison_df[-to_remove,]
-        }
-        trimmed_colnames<-c()
-        for(i in 1:length(colnames(comparison_df))){ 
-          if(grepl('//',colnames(comparison_df)[i])){
-          trimmed_colnames<-append(trimmed_colnames,strsplit(colnames(comparison_df)[i], '//')[[1]][2])
-          }
-        }
-        colnames(comparison_df)[4:ncol(comparison_df)]<-trimmed_colnames
-        #comparison_df[4:ncol(comparison_df)]<-round(comparison_df[4:ncol(comparison_df)],0)
-        #works but can't sort. Probably need to add buttons to patch it together (formattable is static and datatable is uggo)
-        #datatable(formattable(comparison_df))
-        
-        graph_df<-comparison_df[,-c(1:2)]
-        rownames(graph_df)<-graph_df[,1]
-        graph_df$name<-NULL
+        comparison_df<-comparison_df[comparison_df$rank == as.character(input$phyloRank),]
+        graph_df<-comparison_df
+        graph_df[,c(2,3,4)]<-NULL
 GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
         reactable(graph_df,
                   defaultColDef = colDef(
                   style = function(value) {
-                    if (!is.numeric(value)) return()
-                    normalized <- (value - min(graph_df)) / (max(graph_df) - min(graph_df))
+                    if (!is.numeric(value))
+                    {return()}
+                    else 
+                    normalized <- (value - min(graph_df[,2:ncol(graph_df)])) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
                     color <- GnYlRd(normalized)
-                    list(background = color)
+                    list(background = color) 
                   },
-                  format = colFormat(digits = 1),
-                  minWidth = 50
+                  format = colFormat(digits = 0),
+                  minWidth = 50,
+                  #headerStyle = list(background = "#f7f7f8")
                 ),
                 searchable = TRUE, 
                 height = 500,
@@ -244,18 +198,108 @@ GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxC
                 highlight = TRUE,
                 fullWidth = TRUE,
                 columns = list(
-    .rownames = colDef(name = "Taxa", sortable = TRUE, align = "left",
+    name = colDef(name = "Taxa", sortable = TRUE, align = "left",
     cell = function(value, index) {
     # Render as a link
-    url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxid[index])
+    url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxID[index])
     htmltools::tags$a(href = url, target = "_blank", as.character(value))
-    #https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=5606&lvl=3&lin=f&keep=1&srchmode=1&unlock
-  })
-        ))
+
+  }, 
+        style = list(fontFamily = "Helvetica", whiteSpace = "pre")
+)
+        ) )
 
 })
 
-
 ```   
  
-#SANKEY TIME YO
+# Dendrogram 
+```{r} 
+
+selectInput(
+    "select",
+    label = h3("Select sample"),
+    choices = colnames(comparison_df)[c(5:ncol(comparison_df))]
+  )#z<-unique(unlist(sapply(strsplit(as.character(test$lineage), '-_'), unique)))
+#id = unlist(sapply(strsplit(as.character(z), '|', fixed = TRUE), unique))
+#nodes<-data.frame(unique(id))
+
+
+make_relation<-function(sample){ 
+  #sample<-data.frame(sample, stringsAsFactors = FALSE)
+  #print((sample))
+  temp<-unlist(strsplit(sample, '|', fixed = TRUE))
+  #print(temp)
+  count = 1
+  to<-c()
+  from<-c()
+  if(length(temp) > 10)
+    end = 10
+  else
+    end = length(temp)
+  while(count < end ){ 
+    from<-append(from, temp[count])
+    to<-append(to, temp[count + 1])
+    count = count + 1
+  }
+  df<-data.frame(from = from, to = to)
+  return(df)
+}
+#make_relation(test[103,])
+
+#edges<-data.frame(from = c('first'), to = c('first'))
+
+renderVisNetwork({
+col_index = which(colnames(comparison_df) == input$select)
+test<-comparison_df[,c(4,col_index)]
+rough<-sapply(test$lineage, make_relation)
+
+all_values<-do.call(rbind, rough)
+all_values<-rownames_to_column(all_values, "lineage")
+all_values<-distinct(all_values,from, to, .keep_all = TRUE)
+
+all_values$lineage<-sapply(strsplit(as.character(all_values$lineage), "\\."), "[[", 1)
+
+merged<-left_join(all_values, test ,by = 'lineage' )
+colnames(merged)[length(colnames(merged))]<-'size'
+
+merged$taxa<-sapply(strsplit(as.character(merged$from), "_"), "[[", 1)
+merged$from<-sapply(strsplit(as.character(merged$from), "_"), "[[", 2)
+merged$to<-sapply(strsplit(as.character(merged$to), "_"), "[[", 2)
+map_colors<-colorRampPalette(viridis(12))
+colors = map_colors(length(unique(merged$taxa)))
+merged$color= NA
+for(i in 1:length(unique(merged$taxa))){ 
+  indexes <- which(merged$taxa == unique(merged$taxa)[i])
+    merged$color[indexes]<-colors[i]
+    
+  }
+
+nodes<-data.frame(id = (merged$from), label = (merged$from), size = merged$size, title = merged$size, color = merged$color)
+nodes$title <- paste("RPM = ", nodes$title)
+edges<-data.frame(from = merged$from, to = merged$to)
+
+nodes$id<-as.character(nodes$id)
+uniques<-unique(nodes$id  )
+keep<-c()
+for(i in 1:length(uniques)){ 
+  indexes<-which(nodes$id == uniques[i])
+  keep<-append(keep,(indexes[(which.max(nodes$size[indexes]))]))
+  #print(which(nodes$size == max(nodes$size[nodes$id == i])))
+  #keep<-append(keep, which(nodes$size == max(nodes$size[nodes$id == i])))
+}
+
+
+nodes<-nodes[keep,]
+nodes$size<-log(nodes$size) ^2
+visNetwork(nodes = nodes, edges = edges) %>%
+  visLayout(hierarchical = FALSE) %>%
+  visNodes(label = nodes) %>% 
+  #visNodes(width)
+  visPhysics(stabilization = FALSE) %>%
+ #  visEdges(smooth = FALSE) %>%
+  visPhysics(solver = "barnesHut")
+ #            hierarchicalRepulsion = list(gravitationalConstant = -200))
+
+})
+```   
