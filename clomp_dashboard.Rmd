@@ -23,10 +23,10 @@ library(collapsibleTree)
 library(tidyverse)
 library(viridis)
 library(visNetwork)
-
+library(sunburstR)
 
     prep_data<-function(path, taxa_class){
-      path <- '/Users/vikas/Downloads/clomp_vis_testing'
+      path <- '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
         setwd(path)
         
         files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
@@ -80,7 +80,7 @@ library(visNetwork)
         
         return(taxa_filtered)
     }
- filepath  = '~/Downloads/scratch/new/'
+ filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
   
         df<-(prep_data(filepath, 'G'))
         colnames(df)<-gsub("\t", "", colnames(df))
@@ -98,7 +98,7 @@ comparison_df<-(prep_data(filepath, "*"))
 # RPM overview chart
     
 ```{r,fig.height=8}
-       titlePanel("RPM overview")
+     titlePanel("RPM overview")
 
     numericInput("RPM_threshold", "Minmum RPM threshold for filtering", 100, min = 1)
     checkboxInput('show_subchart', 'Show subchart', value = FALSE, width = NULL)
@@ -303,3 +303,93 @@ visNetwork(nodes = nodes, edges = edges) %>%
 
 })
 ```   
+
+
+
+# SunburstR
+```{r} 
+
+selectInput(
+    "select",
+    label = h3("Select sample"),
+    choices = colnames(comparison_df)[c(5:ncol(comparison_df))]
+  )#z<-unique(unlist(sapply(strsplit(as.character(test$lineage), '-_'), unique)))
+#id = unlist(sapply(strsplit(as.character(z), '|', fixed = TRUE), unique))
+#nodes<-data.frame(unique(id))
+
+
+make_relation<-function(sample){ 
+  #sample<-data.frame(sample, stringsAsFactors = FALSE)
+  #print((sample))
+  temp<-unlist(strsplit(sample, '|', fixed = TRUE))
+  #print(temp)
+  count = 1
+  to<-c()
+  from<-c()
+  if(length(temp) > 10)
+    end = 10
+  else
+    end = length(temp)
+  while(count < end ){ 
+    from<-append(from, temp[count])
+    to<-append(to, temp[count + 1])
+    count = count + 1
+  }
+  df<-data.frame(from = from, to = to)
+  return(df)
+}
+#make_relation(test[103,])
+
+#edges<-data.frame(from = c('first'), to = c('first'))
+
+renderSunburst({
+col_index = which(colnames(comparison_df) == input$select)
+test<-comparison_df[,c(4,col_index)]
+rough<-sapply(test$lineage, make_relation)
+
+all_values<-do.call(rbind, rough)
+all_values<-rownames_to_column(all_values, "lineage")
+all_values<-distinct(all_values,from, to, .keep_all = TRUE)
+
+all_values$lineage<-sapply(strsplit(as.character(all_values$lineage), "\\."), "[[", 1)
+
+merged<-left_join(all_values, test ,by = 'lineage' )
+colnames(merged)[length(colnames(merged))]<-'size'
+
+merged$taxa<-sapply(strsplit(as.character(merged$from), "_"), "[[", 1)
+merged$from<-sapply(strsplit(as.character(merged$from), "_"), "[[", 2)
+merged$to<-sapply(strsplit(as.character(merged$to), "_"), "[[", 2)
+map_colors<-colorRampPalette(viridis(12))
+colors = map_colors(length(unique(merged$taxa)))
+merged$color= NA
+for(i in 1:length(unique(merged$taxa))){ 
+  indexes <- which(merged$taxa == unique(merged$taxa)[i])
+    merged$color[indexes]<-colors[i]
+    
+}
+
+
+merged$lineage<-gsub("-_root", "root", merged$lineage)
+#merged$lineage<-gsub('-_','r_', merged$lineage)
+merged$lineage<-gsub('-_','', merged$lineage)
+merged$lineage<-gsub('\\|','-', merged$lineage)
+
+sunburst_df<-data.frame(merged$lineage, merged$size)
+sunburst_df<-sunburst_df[order(sunburst_df$merged.lineage),]
+
+sund2b(sunburst_df,
+         #count = TRUE,
+         #percent = TRUE,
+         height = "2000px",
+         width = "100%"
+         # explanation would put the % and count out
+         #,explanation = "function(d){return d.data.name}"
+         )
+
+#merged<-merged %>% mutate(trimmed = str_replace_all( merged$lineage, '\\|', ""))  
+#merged<-merged %>% mutate(trimmed_final = str_replace_all( merged$trimmed, '_', ""))  
+
+})
+
+```
+
