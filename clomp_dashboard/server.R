@@ -25,7 +25,7 @@ library(plotly)
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
 prep_data<-function(path, taxa_class){
-    path <- '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
+    path <- '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
     setwd(path)
     
     files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
@@ -135,9 +135,7 @@ clean_order<-function(df){
 }
 
 
-
-
-filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
+filepath  = '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
 
 df<-(prep_data(filepath, 'G'))
 colnames(df)<-gsub("\t", "", colnames(df))
@@ -154,21 +152,30 @@ RPM_r_df<-RPMr_create(comparison_df)
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
 
-    output$distPlot <- renderPlot({
-
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-
-    })
+    # output$distPlot <- renderPlot({
+    # 
+    #     # generate bins based on input$bins from ui.R
+    #     x    <- faithful[, 2]
+    #     bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    # 
+    #     # draw the histogram with the specified number of bins
+    #     hist(x, breaks = bins, col = 'darkgray', border = 'white')
+    # 
+    # })
 
     show_list<-c()
+    
+    uniques<-unique(c(sapply(strsplit(as.character(colnames(RPM_r_df)[5:ncol(RPM_r_df)]), "_"), "[[", 1)))
+    print(uniques)
+    output$selected_samples <- renderUI({
+      #checkboxGroupInput("selected_samples", "select samples:", choices = colnames(RPM_r_df[5:ncol(RPM_r_df)]), selected = colnames(RPM_r_df[5:ncol(RPM_r_df)]))
+      checkboxGroupInput("selected_samples", "select samples:", choices = uniques, selected = uniques)
+    })
+  
+    
     x <- reactive({
         z<-RPM_r_df[RPM_r_df$rank == input$Heatmap_rank,]
-        print(input$Heatmap_rank)
+        #print(input$Heatmap_rank)
 
         for(i in 1:nrow(z)){
             if( any(z[i,5:ncol(z)] > input$RPM_threshold)){
@@ -179,18 +186,69 @@ shinyServer(function(input, output) {
                 }
         }
         show_list<-unique(show_list)
-        final<-z[show_list,]
+        
+        selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
+        to_include<-which(grepl(paste(selected_colnames, collapse = "|"),colnames(RPM_r_df)))
+        to_include<-append(unlist(to_include),c(1:4) )
+        print(to_include)
+        final<-z[show_list,to_include]
         final
 
     })
-
-
+    
+    
+    
+   
+    # 
+    # filter_df<- reactive({
+    #   print('here')
+    #   selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
+    #   to_include<-which(colnames(x()) %in% selected_colnames)
+    #   print(to_include)
+    #   out<-x()[,to_include]
+    #   out
+    # })
+    # 
+    
+    #selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
     output$heatmap<-renderPlotly({
+      print('here')
+      #print(length(filter_df()))
+      
+    #to_include<-c(5:ncol(x()))
+    #print(class(input$selected_samples))
+    #print(strsplit(input$selected_samples, '\t') )
+    #print(asdfasdf[1])
+    
+      #heatmap_df<-x()
+      #to_include<-c('5')
+      #to_include<-append(1,to_include)
+        #x<-x()[,to_include]
+        #print(colnames(x))
+        #original<-x()
         heatmap_df<-x()
+        #print(colnames(heatmap_df))
+      
+      
+        #heatmap_df<-heatmap_df[,c(input$selected_samples)]
         
-     
+        
+        #print(input$selected_samples)
+        #heatmap_names<-colnames(heatmap_df)
+
+        
+        
+        #print(dim(heatmap_df))
         rownames(heatmap_df)<-heatmap_df$name
-        heatmap_df[,1:4]<-NULL
+        #heatmap_df$name<-NULL
+        to_remove<-which(grepl(paste(c('name','rank','taxID','lineage'), collapse = "|"),colnames(heatmap_df)))
+        heatmap_df[,to_remove]<-NULL
+        #heatmap_df[,c('name','rank','taxID','lineage')]<-NULL
+
+        print(colnames(heatmap_df))
+        
+        
+        #heatmap_df<-heatmap_df[,c(input$selected_samples)]
         heatmap_mat<-as.matrix(heatmap_df)
         heatmap_mat<-log10(heatmap_mat)
         
