@@ -8,30 +8,27 @@
 #
 
 library(shiny)
+library(plotly)
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
 
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
+    # # Application title
+    titlePanel("ClompViz"),
+    # 
+    # # Sidebar with a slider input for number of bins
+     sidebarLayout(
+         sidebarPanel(
+           numericInput("RPM_threshold", "Minmum RPMr threshold for filtering", 10, min = 1),
+           checkboxGroupInput('Heatmap_rank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('G','S','-'), inline = TRUE),
+           uiOutput('selected_samples'),
+         ),
 
         # Show a plot of the generated distribution
         mainPanel(
-            plotOutput("distPlot"),
-            numericInput("RPM_threshold", "Minmum RPMr threshold for filtering", 10, min = 1),
-            checkboxGroupInput('Heatmap_rank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('G','S','-'), inline = TRUE),
-            
+            #plotOutput("distPlot"),
             plotlyOutput(outputId = "heatmap")
         )
     )
-))
+)
+)
