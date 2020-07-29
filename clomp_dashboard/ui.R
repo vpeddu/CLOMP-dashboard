@@ -9,19 +9,21 @@
 
 library(shiny)
 library(plotly)
+library(shinythemes)
 
 # Define UI for application that draws a histogram
-shinyUI(fluidPage(
+shinyUI(fluidPage(theme = shinytheme("slate"),
 
     # # Application title
     titlePanel("ClompViz"),
     # 
     # # Sidebar with a slider input for number of bins
-     sidebarLayout(
+     sidebarLayout( fluid = TRUE,
          sidebarPanel(
-           numericInput("RPM_threshold", "Minmum RPMr threshold for filtering", 10, min = 1),
+           width = 3,
+           numericInput("RPM_threshold", "Minimum RPMr threshold for filtering", 10, min = 1),
            checkboxGroupInput('Heatmap_rank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('G','S','-'), inline = TRUE),
-           uiOutput('selected_samples'),
+           uiOutput('selected_samples')
          ),
 
         # Show a plot of the generated distribution
@@ -29,6 +31,19 @@ shinyUI(fluidPage(
             #plotOutput("distPlot"),
             plotlyOutput(outputId = "heatmap")
         )
+        
+    ),
+    sidebarLayout( fluid = TRUE,
+      sidebarPanel( 
+        width = 3,
+        numericInput("Comparison_threshold", "Minimum RPM threshold for filtering", 10, min = 1),
+        checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('D','P','C','O','F','G','S','-'), inline = TRUE)
+        
+        ),
+      mainPanel( 
+        reactableOutput("table")
+        )
+      
     )
 )
 )
