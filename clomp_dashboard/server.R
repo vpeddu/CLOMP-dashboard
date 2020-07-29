@@ -7,20 +7,9 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
-library(c3)
-library(formattable)
-library(DT)
-library(reactable)
-#library(pavian)
-library(shinyHeatmaply)
-library(Cairo)
-library(collapsibleTree) 
-library(tidyverse)
-library(viridis)
-library(visNetwork)
-library(sunburstR)
-library(plotly)
+list.of.packages <- c("shiny","c3","formattable","DT","reactable","shinyHeatmaply","Cairo","collapsibleTree","tidyverse",
+                      "viridis","visNetwork","sunburstR","plotly")
+lapply(list.of.packages,library,character.only = TRUE)
 
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
@@ -151,18 +140,6 @@ RPM_r_df<-RPMr_create(comparison_df)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
-
-    # output$distPlot <- renderPlot({
-    # 
-    #     # generate bins based on input$bins from ui.R
-    #     x    <- faithful[, 2]
-    #     bins <- seq(min(x), max(x), length.out = input$bins + 1)
-    # 
-    #     # draw the histogram with the specified number of bins
-    #     hist(x, breaks = bins, col = 'darkgray', border = 'white')
-    # 
-    # })
-
     show_list<-c()
     
     uniques<-unique(c(sapply(strsplit(as.character(colnames(RPM_r_df)[5:ncol(RPM_r_df)]), "_"), "[[", 1)))
@@ -195,9 +172,6 @@ shinyServer(function(input, output) {
         final
 
     })
-    
-    
-    
    
     # 
     # filter_df<- reactive({
@@ -212,7 +186,6 @@ shinyServer(function(input, output) {
     
     #selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
     output$heatmap<-renderPlotly({
-      print('here')
       #print(length(filter_df()))
       
     #to_include<-c(5:ncol(x()))
@@ -229,14 +202,11 @@ shinyServer(function(input, output) {
         heatmap_df<-x()
         #print(colnames(heatmap_df))
       
-      
         #heatmap_df<-heatmap_df[,c(input$selected_samples)]
         
         
         #print(input$selected_samples)
         #heatmap_names<-colnames(heatmap_df)
-
-        
         
         #print(dim(heatmap_df))
         rownames(heatmap_df)<-heatmap_df$name
@@ -245,9 +215,8 @@ shinyServer(function(input, output) {
         heatmap_df[,to_remove]<-NULL
         #heatmap_df[,c('name','rank','taxID','lineage')]<-NULL
 
-        print(colnames(heatmap_df))
-        
-        
+        #print(colnames(heatmap_df))
+      
         #heatmap_df<-heatmap_df[,c(input$selected_samples)]
         heatmap_mat<-as.matrix(heatmap_df)
         heatmap_mat<-log10(heatmap_mat)
@@ -255,28 +224,161 @@ shinyServer(function(input, output) {
         heatmap_min<-min(heatmap_mat)
         heatmap_max<-max(heatmap_mat)
         
-        
         heatmaply(heatmap_mat,
                   dendrogram = "none",
+                  heatmap_layers = theme(plot.background = element_rect(fill="#272B30"),
+                                         panel.background = element_rect(fill="#272B30"),
+                                         legend.background = element_rect(fill="#272B30"),
+                                         text = element_text(colour = "#C8C8C8", family="Arial", size=10),
+                                         #plot.title = element_text(colour = "#C8C8C8", face="bold", size=12),
+                                         axis.text = element_text(colour = "#C8C8C8"),
+                                         axis.line=element_blank()),
                   xlab = "", ylab = "",
                   main = "Heatmap of RPMr values",
                   scale = "row",
                   #margins = c(60,100,40,20),
-                  grid_color = "black",
+                  grid_color = "#272B30",
                   grid_width = 0.00001,
                   titleX = FALSE,
                   hide_colorbar = FALSE,
                   branches_lwd = 0.1,
                   label_names = c("Taxa", "Sample", "Log(RPM)"),
-                  fontsize_row = 5, 
+                  fontsize_row = 10,
+                  fontsize_col = 10
                   #limits = c(heatmap_min,heatmap_max),
-                  #fontsize_col = 5,
                   #subplot_heights=c(0.05, 0.95),
                   #margins = (c(10,10,10,10)),
                   
-                  heatmap_layers = theme(axis.line=element_blank())
-        ) %>% layout(width=1500, height = 500)
+  
+        ) %>% layout(autosize = TRUE)          
+        #) %>% layout(width=1500, height = 500)
     })
     
     
+    table_theme <- reactableTheme(
+      backgroundColor <- "#272B30",
+      borderColor <- "hsl(213, 10%, 17%)"
+      #color <- "hsl(0, 100%, 100%)"
+    )
+    
+    
+    spotify_theme <- function() {
+      search_icon <- function(fill = "none") {
+        # Icon from https://boxicons.com
+        svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path fill="%s" d="M10 18c1.85 0 3.54-.64 4.9-1.69l4.4 4.4 1.4-1.42-4.39-4.4A8 8 0 102 10a8 8 0 008 8.01zm0-14a6 6 0 11-.01 12.01A6 6 0 0110 4z"/></svg>', fill)
+        sprintf("url('data:image/svg+xml;base64,%s')", jsonlite::base64_enc(svg))
+      }
+      
+      text_color <- "hsl(0, 0%, 95%)"
+      text_color_light <- "hsl(0, 0%, 70%)"
+      text_color_lighter <- "hsl(0, 0%, 55%)"
+      #bg_color <- "hsl(0, 0%, 10%)"
+      bg_color <- "#1C1E22"
+      
+      reactableTheme(
+        color = "#272B30",
+        backgroundColor = bg_color,
+        borderColor = "hsl(0, 0%, 16%)",
+        borderWidth = "1px",
+        highlightColor = "rgba(255, 255, 255, 0.1)",
+        cellPadding = "10px 8px",
+        style = list(
+          fontFamily = "Work Sans, Helvetica Neue, Helvetica, Arial, sans-serif",
+          fontSize = "14px",
+          "a" = list(
+            color = text_color_light,
+            "&:hover, &:focus" = list(
+              textDecoration = "none",
+              borderBottom = "1px solid currentColor"
+            )
+          ),
+          ".number" = list(
+            color = text_color_light,
+            fontFamily = "Source Code Pro, Consolas, Monaco, monospace"
+          ),
+          ".tag" = list(
+            padding = "2px 4px",
+            color = "hsl(0, 0%, 40%)",
+            fontSize = "12px",
+            border = "1px solid hsl(0, 0%, 24%)",
+            borderRadius = "2px"
+          )
+        ),
+        headerStyle = list(
+          color = text_color_light,
+          fontWeight = 400,
+          fontSize = "12px",
+          letterSpacing = "1px",
+          textTransform = "uppercase",
+          "&:hover, &:focus" = list(color = text_color, backgroundColor = "hsl(0, 0%, 24%)")
+        ),
+        rowHighlightStyle = list(
+          ".tag" = list(color = text_color, borderColor = text_color_lighter)
+        ),
+        # Full-width search bar with search icon
+        searchInputStyle = list(
+          paddingLeft = "30px",
+          paddingTop = "8px",
+          paddingBottom = "8px",
+          width = "100%",
+          border = "none",
+          backgroundColor = bg_color,
+          backgroundImage = search_icon(text_color_light),
+          backgroundSize = "16px",
+          backgroundPosition = "left 8px center",
+          backgroundRepeat = "no-repeat",
+          "&:focus" = list(backgroundColor = "rgba(255, 255, 255, 0.1)", border = "none"),
+          "&:hover, &:focus" = list(backgroundImage = search_icon(text_color)),
+          "::placeholder" = list(color = text_color_lighter),
+          "&:hover::placeholder, &:focus::placeholder" = list(color = text_color)
+        ),
+        paginationStyle = list(color = text_color_light),
+        pageButtonHoverStyle = list(backgroundColor = "hsl(0, 0%, 20%)"),
+        pageButtonActiveStyle = list(backgroundColor = "hsl(0, 0%, 24%)")
+      )
+    }
+    
+    
+    output$table<-renderReactable({
+      #comparison_df$taxa 
+      comparison_df<-comparison_df[comparison_df$rank == as.character(input$phyloRank),]
+      graph_df<-comparison_df
+      graph_df[,c(2,3,4)]<-NULL
+      GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
+      reactable(graph_df, 
+                defaultColDef = colDef(
+                  style = function(value) {
+                    if (!is.numeric(value))
+                    {return()}
+                    else 
+                      normalized <- (value - min(graph_df[,2:ncol(graph_df)])) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
+                    color <- GnYlRd(normalized)
+                    list(background = color) 
+                  },
+                  format = colFormat(digits = 0),
+                  #minWidth = 50,
+                  #headerStyle = list(background = "#f7f7f8")
+                ),
+                searchable = TRUE, 
+                height = "auto",
+                width = "auto",
+                bordered = TRUE,
+                outlined = FALSE,
+                resizable = TRUE,
+                highlight = TRUE,
+                fullWidth = TRUE,
+                wrap = FALSE,
+                theme = spotify_theme,
+                columns = list(
+                  name = colDef(name = "Taxa", sortable = TRUE, align = "left", resizable = TRUE, minWidth=120,
+                                cell = function(value, index) {
+                                  # Render as a link
+                                  url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxID[index])
+                                  htmltools::tags$a(href = url, target = "_blank", as.character(value))
+                                }, 
+                                style = list(fontFamily = "Helvetica", color = "#8ec8c8",whiteSpace = "pre")
+                  )
+                ) )
+      
+    })
 })
