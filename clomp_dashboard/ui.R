@@ -37,8 +37,8 @@ shinyUI(fluidPage(theme = shinytheme("slate"),
       sidebarPanel( 
         width = 3,
         numericInput("Comparison_threshold", "Minimum RPM threshold for filtering", 10, min = 1),
-        checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('D','P','C','O','F','G','S','-'), inline = TRUE)
-        
+        checkboxGroupInput('phyloRank', 'Rank', c('D','P','C','O','F','G','S','-'), selected = c('G','S','-'), inline = TRUE),
+        radioButtons("normalizeWater", h3(""), choices = list("Include water samples" = 1, "Normalize to water samples" = 2), selected = 1)
         ),
       mainPanel( 
         reactableOutput("table")
