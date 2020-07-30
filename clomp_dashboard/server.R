@@ -11,10 +11,15 @@ list.of.packages <- c("shiny","c3","formattable","DT","reactable","shinyHeatmapl
                       "viridis","visNetwork","sunburstR","plotly","dplyr")
 lapply(list.of.packages,library,character.only = TRUE)
 
+
+filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
+
+
+
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
 prep_data<-function(path, taxa_class){
-    path <- '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
+    #path <- '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
     setwd(path)
     
     files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
@@ -124,7 +129,6 @@ clean_order<-function(df){
 }
 
 
-filepath  = '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
 
 df<-(prep_data(filepath, 'G'))
 colnames(df)<-gsub("\t", "", colnames(df))
@@ -143,7 +147,7 @@ shinyServer(function(input, output) {
     show_list<-c()
     
     uniques<-unique(c(sapply(strsplit(as.character(colnames(RPM_r_df)[5:ncol(RPM_r_df)]), "_"), "[[", 1)))
-    print(uniques)
+    #print(uniques)
     output$selected_samples <- renderUI({
       #checkboxGroupInput("selected_samples", "select samples:", choices = colnames(RPM_r_df[5:ncol(RPM_r_df)]), selected = colnames(RPM_r_df[5:ncol(RPM_r_df)]))
       checkboxGroupInput("selected_samples", "select samples:", choices = uniques, selected = uniques)
@@ -167,22 +171,21 @@ shinyServer(function(input, output) {
         selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
         to_include<-which(grepl(paste(selected_colnames, collapse = "|"),colnames(RPM_r_df)))
         to_include<-append(unlist(to_include),c(1:4) )
-        print(to_include)
+        #print(to_include)
         final<-z[show_list,to_include]
         final
 
     })
    
-    # 
-    # filter_df<- reactive({
-    #   print('here')
-    #   selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
-    #   to_include<-which(colnames(x()) %in% selected_colnames)
-    #   print(to_include)
-    #   out<-x()[,to_include]
-    #   out
-    # })
-    # 
+
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     # MOVE HEATMAP XAXIS TO TOP!
@@ -272,7 +275,7 @@ shinyServer(function(input, output) {
         sprintf("url('data:image/svg+xml;base64,%s')", jsonlite::base64_enc(svg))
       }
       
-      text_color <- "hsl(0, 0%, 95%)"
+      text_color <- "hsl(0, 0%, 100%)"
       text_color_light <- "hsl(0, 0%, 70%)"
       text_color_lighter <- "hsl(0, 0%, 55%)"
       #bg_color <- "hsl(0, 0%, 10%)"
@@ -352,28 +355,36 @@ shinyServer(function(input, output) {
       #   cor() %>% 
       #   as.data.frame() %>%
       #   select_if(funs(any(abs(.) > 0.4)))
-      to_keep<-function(df, phylogeny, threshold){ 
-        
-        keep_rows<-which(df$rank %in% as.character(input$phyloRank))
-        for(i in 1:nrow(df)){
-          if( any(df[i,5:ncol(df)] > threshold)){
-            show_list<-append(i, keep_rows)
+      to_keep<-function(df, phylogeny, threshold,ranges){ 
+        print(colnames(df))
+        keep_rows<-which(df$rank %in% as.character(phylogeny))
+        threshold_filtered<-c()
+        for(i in 1:length(keep_rows)){
+          if( any(df[keep_rows[i],ranges] > threshold)){
+            threshold_filtered<-append(keep_rows[i], threshold_filtered)
           }
-        return(keep_rows)
         }
+        out_list<-unique((threshold_filtered))
+        #print(out_list)
+        return(out_list)
       }
       
       
       if(input$normalizeWater==1) {
         #print(to_keep(comparison_df, input$phyloRank ,2 ))
-        keep_values<-to_keep(comparison_df, input$phyloRank, input$Comparison_threshold)
+        keep_values<-to_keep(comparison_df, input$phyloRank, input$Comparison_threshold,5:ncol(comparison_df))
+        #print(keep_values)
         comparison_df<-comparison_df[keep_values,]
+        #print(keep_values)
         #comparison_df<-comparison_df[comparison_df$rank %in% as.character(input$phyloRank),]
         graph_df<-comparison_df
         graph_df[,c(2,3,4)]<-NULL
       } else if (input$normalizeWater==2) {
         graph_df <- x()
         rownames(graph_df)<-graph_df$name
+        keep_values<-to_keep(graph_df, input$phyloRank, input$Comparison_threshold, 1:(ncol(graph_df) - 5))
+        #print(keep_values)
+        graph_df<-graph_df[keep_values,]
         to_remove<-which(grepl(paste(c('name','rank','taxID','lineage'), collapse = "|"),colnames(graph_df)))
         graph_df[,to_remove]<-NULL
         graph_df<-rownames_to_column(graph_df, var = 'name')
@@ -409,7 +420,7 @@ shinyServer(function(input, output) {
                 wrap = FALSE,
                 theme = spotify_theme,
                 columns = list(
-                  name = colDef(name = "Taxa", sortable = TRUE, align = "left", resizable = TRUE, minWidth=1600,
+                  name = colDef(name = "Taxa", sortable = TRUE, align = "left", resizable = TRUE, minWidth=250,
                                 cell = function(value, index) {
                                   # Render as a link
                                   url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxID[index])
