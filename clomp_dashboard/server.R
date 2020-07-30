@@ -8,7 +8,7 @@
 #
 
 list.of.packages <- c("shiny","c3","formattable","DT","reactable","shinyHeatmaply","Cairo","collapsibleTree","tidyverse",
-                      "viridis","visNetwork","sunburstR","plotly")
+                      "viridis","visNetwork","sunburstR","plotly","dplyr")
 lapply(list.of.packages,library,character.only = TRUE)
 
 # Read and merge pavian TSVs 
@@ -184,6 +184,9 @@ shinyServer(function(input, output) {
     # })
     # 
     
+    
+    # MOVE HEATMAP XAXIS TO TOP!
+    
     #selected_colnames<-(c(sapply(strsplit(as.character(input$selected_samples), "\t"), "[[", 1)))
     output$heatmap<-renderPlotly({
       #print(length(filter_df()))
@@ -234,7 +237,7 @@ shinyServer(function(input, output) {
                                          axis.text = element_text(colour = "#C8C8C8"),
                                          axis.line=element_blank()),
                   xlab = "", ylab = "",
-                  main = "Heatmap of RPMr values",
+                  #main = "Heatmap of RPMr values",
                   scale = "row",
                   #margins = c(60,100,40,20),
                   grid_color = "#272B30",
@@ -339,12 +342,47 @@ shinyServer(function(input, output) {
     }
     
     
+    comparison_df<-comparison_df[comparison_df$name != 'root',]
     output$table<-renderReactable({
       #comparison_df$taxa 
-      comparison_df<-comparison_df[comparison_df$rank == as.character(input$phyloRank),]
-      graph_df<-comparison_df
-      graph_df[,c(2,3,4)]<-NULL
-      GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
+      #comparison_df<-filter_all(any_vars(abs(.) > 0.4))
+      # 
+      # comparison_df<-comparison_df %>% 
+      #   select_if(is.numeric) %>% 
+      #   cor() %>% 
+      #   as.data.frame() %>%
+      #   select_if(funs(any(abs(.) > 0.4)))
+      to_keep<-function(df, phylogeny, threshold){ 
+        
+        keep_rows<-which(df$rank %in% as.character(input$phyloRank))
+        for(i in 1:nrow(df)){
+          if( any(df[i,5:ncol(df)] > threshold)){
+            show_list<-append(i, keep_rows)
+          }
+        return(keep_rows)
+        }
+      }
+      
+      
+      if(input$normalizeWater==1) {
+        #print(to_keep(comparison_df, input$phyloRank ,2 ))
+        keep_values<-to_keep(comparison_df, input$phyloRank, input$Comparison_threshold)
+        comparison_df<-comparison_df[keep_values,]
+        #comparison_df<-comparison_df[comparison_df$rank %in% as.character(input$phyloRank),]
+        graph_df<-comparison_df
+        graph_df[,c(2,3,4)]<-NULL
+      } else if (input$normalizeWater==2) {
+        graph_df <- x()
+        rownames(graph_df)<-graph_df$name
+        to_remove<-which(grepl(paste(c('name','rank','taxID','lineage'), collapse = "|"),colnames(graph_df)))
+        graph_df[,to_remove]<-NULL
+        graph_df<-rownames_to_column(graph_df, var = 'name')
+      }
+      
+      colorpal <- viridis(255,begin=0,end=1)
+
+      #GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
+      GnYlRd <- function(x) rgb(colorRamp(colorpal[c(15:255)])(x), maxColorValue = 255)
       reactable(graph_df, 
                 defaultColDef = colDef(
                   style = function(value) {
@@ -354,6 +392,7 @@ shinyServer(function(input, output) {
                       normalized <- (value - min(graph_df[,2:ncol(graph_df)])) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
                     color <- GnYlRd(normalized)
                     list(background = color) 
+                    #list(background = 1) 
                   },
                   format = colFormat(digits = 0),
                   #minWidth = 50,
@@ -370,7 +409,7 @@ shinyServer(function(input, output) {
                 wrap = FALSE,
                 theme = spotify_theme,
                 columns = list(
-                  name = colDef(name = "Taxa", sortable = TRUE, align = "left", resizable = TRUE, minWidth=120,
+                  name = colDef(name = "Taxa", sortable = TRUE, align = "left", resizable = TRUE, minWidth=1600,
                                 cell = function(value, index) {
                                   # Render as a link
                                   url <- sprintf("https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&id=%s", comparison_df$taxID[index])
