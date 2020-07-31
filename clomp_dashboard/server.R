@@ -386,15 +386,15 @@ shinyServer(function(input, output) {
       #   as.data.frame() %>%
       #   select_if(funs(any(abs(.) > 0.4)))
       to_keep<-function(df, phylogeny, threshold,ranges){ 
-        print(colnames(df))
-        print(unique(df$rank))
+        #print(colnames(df))
+        #print(unique(df$rank))
         keep_rows<-which(df$rank %in% as.character(phylogeny))
         threshold_filtered<-c()
-        print(keep_rows)
+        
         for(i in 1:length(keep_rows)){
-          print("help")
+          
           if( any(df[keep_rows[i],ranges] > threshold)){
-            print(i)
+            
             threshold_filtered<-append(keep_rows[i], threshold_filtered)
           }
         }
@@ -428,18 +428,44 @@ shinyServer(function(input, output) {
 
       
       print(colnames(graph_df))
-      #GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
       GnYlRd <- function(x) rgb(colorRamp(colorpal[c(15:255)])(x), maxColorValue = 255)
+      #GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
       reactable(graph_df, 
                 defaultColDef = colDef(
                   style = function(value) {
                     if (!is.numeric(value))
                     {return()}
-                    else 
-                      normalized <- (value - min(graph_df[,2:ncol(graph_df)])) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
+                    else {
+                    #   normalized <- (value - (as.numeric(input$Comparison_threshold))) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
+                    # print("before")
+                    # print(normalized)
+                    # if(( value - (as.numeric(input$Comparison_threshold)))<0){ 
+                    #   normalized = 0
+                    # }
+                    # else{ 
+                    #   normalized = log10(normalized)
+                    #   print("after log")
+                    #   print(normalized)
+                    # }
+                    # if(normalized < 0) {
+                    #   normalized = 0
+                    # }
+                      print(value)
+                      if (value <= 1) {
+                        normalized = 0
+                      } else {
+                      normalized <- log10(value)/(log10(max(graph_df[,2:ncol(graph_df)])))
+                      
+                      }
+                      
+                      print("that was value")
+                      print(normalized)
+                    }
+                    #print(min(graph_df[,2:ncol(graph_df)]))
                     color <- GnYlRd(normalized)
                     list(background = color) 
                     #list(background = 1) 
+                  
                   },
                   format = colFormat(digits = 0),
                   #minWidth = 50,
