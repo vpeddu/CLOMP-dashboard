@@ -12,8 +12,8 @@ list.of.packages <- c("shiny","c3","formattable","DT","reactable","shinyHeatmapl
 lapply(list.of.packages,library,character.only = TRUE)
 
 
-filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
-
+#filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
+filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
 
 
 # Read and merge pavian TSVs 
@@ -68,10 +68,34 @@ prep_data<-function(path, taxa_class){
         final_tsv_zero_removed<-final_tsv
     }
     
+
+    for(k in 1:length(files)){
+      if( k == 1 ){
+      temp<-read.csv(file = files[k], sep = "\t", header = FALSE)[ ,4:5]
+      }
+      else {
+        temp2 = read.csv(file = files[k], sep = "\t", header = FALSE)[ ,4:5]
+        new_taxids = temp2[,2][temp2[,2] %in% temp[,2] == FALSE]
+        temp2<-temp2[new_taxids,]
+        temp<-rbind(temp,temp2)
+        }
+    }
+    #print(temp)
+    #print(unique(temp[,2]))
     taxa_filtered<-final_tsv_zero_removed[which(grepl(paste(taxa_class,collapse="|"),final_tsv_zero_removed$rank)),]
+    #print(temp)
+
+
     
     final<-clean_order(taxa_filtered)
     
+    for(f in 1:nrow(final)){
+      #print(f)
+      final$rank[f]<-temp[,1][which(temp[,2] == final$taxID[f])[1]]
+      #print(final$rank[f])
+      #print(final$taxID[f])
+    }
+    print(unique(final$rank))
     return(final)
 }
 
@@ -164,7 +188,8 @@ shinyServer(function(input, output) {
             }
             else{ 
                 #print('failed')
-                }
+            }
+          
         }
         show_list<-unique(show_list)
         
@@ -183,6 +208,17 @@ shinyServer(function(input, output) {
     
     
     
+    
+    
+    # unique_phyla<-unique(comparison_df$rank)
+    # 
+    # output$phyloRank <- renderUI({
+    #   #checkboxGroupInput("selected_samples", "select samples:", choices = colnames(RPM_r_df[5:ncol(RPM_r_df)]), selected = colnames(RPM_r_df[5:ncol(RPM_r_df)]))
+    #   checkboxGroupInput("phyloRank", "select samples:", choices = unique_phyla, selected = unique_phyla, inline = TRUE)
+    # })
+    # 
+    # 
+    # 
     
     
     
@@ -206,15 +242,7 @@ shinyServer(function(input, output) {
         #print(colnames(x))
         #original<-x()
         heatmap_df<-x()
-        #print(colnames(heatmap_df))
-      
-        #heatmap_df<-heatmap_df[,c(input$selected_samples)]
-        
-        
-        #print(input$selected_samples)
-        #heatmap_names<-colnames(heatmap_df)
-        
-        #print(dim(heatmap_df))
+
         rownames(heatmap_df)<-heatmap_df$name
         #heatmap_df$name<-NULL
         to_remove<-which(grepl(paste(c('name','rank','taxID','lineage'), collapse = "|"),colnames(heatmap_df)))
@@ -357,6 +385,7 @@ shinyServer(function(input, output) {
       #   select_if(funs(any(abs(.) > 0.4)))
       to_keep<-function(df, phylogeny, threshold,ranges){ 
         print(colnames(df))
+        print(unique(df$rank))
         keep_rows<-which(df$rank %in% as.character(phylogeny))
         threshold_filtered<-c()
         for(i in 1:length(keep_rows)){
@@ -392,6 +421,8 @@ shinyServer(function(input, output) {
       
       colorpal <- viridis(255,begin=0,end=1)
 
+      
+      print(colnames(graph_df))
       #GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
       GnYlRd <- function(x) rgb(colorRamp(colorpal[c(15:255)])(x), maxColorValue = 255)
       reactable(graph_df, 
