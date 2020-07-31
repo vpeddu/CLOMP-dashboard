@@ -13,13 +13,12 @@ lapply(list.of.packages,library,character.only = TRUE)
 
 
 #filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
-filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
-
+#filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
+filepath = '/Users/uwvirongs/Downloads/CLOMP-dashboard/test_data_new/'
 
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
 prep_data<-function(path, taxa_class){
-    #path <- '/Users/uwvirongs/Documents/clomp-dashboard-data/test_data/'
     setwd(path)
     
     files<-list.files(path, pattern = '*.tsv',full.names = TRUE)
@@ -92,11 +91,13 @@ prep_data<-function(path, taxa_class){
     
     for(f in 1:nrow(final)){
       #print(f)
-      final$rank[f]<-temp[,1][which(temp[,2] == final$taxID[f])[1]]
+    print(temp[,1][which(temp[,2] == final$taxID[f])[1]])  
+      final$rank[f]<-as.character(temp[,1][which(temp[,2] == final$taxID[f])[1]])
       #print(final$rank[f])
       #print(final$taxID[f])
     }
-    print(unique(final$rank))
+    print('here')
+    
     return(final)
 }
 
@@ -389,8 +390,11 @@ shinyServer(function(input, output) {
         print(unique(df$rank))
         keep_rows<-which(df$rank %in% as.character(phylogeny))
         threshold_filtered<-c()
+        print(keep_rows)
         for(i in 1:length(keep_rows)){
+          print("help")
           if( any(df[keep_rows[i],ranges] > threshold)){
+            print(i)
             threshold_filtered<-append(keep_rows[i], threshold_filtered)
           }
         }
