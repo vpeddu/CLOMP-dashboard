@@ -45,9 +45,10 @@ prep_data<-function(path, taxa_class){
     colnames(only_clade)[keep]<-new_colnames
     colnames(only_clade)[1:4]<-c('name','rank','taxID','lineage')
     
-    
+    #print(only_clade[,c(1,5:6)])
     final_tsv<-only_clade
-    
+    print('colname')
+    print(colnames(final_tsv))
     for(i in 5:ncol(only_clade)){ 
         final_tsv[,i]<-only_clade[,i] / ((only_clade[1,i] + only_clade[2,i] ) / 1e6) 
     }
@@ -179,7 +180,7 @@ shinyServer(function(input, output) {
   
     
     x <- reactive({
-        z<-RPM_r_df[RPM_r_df$rank == input$Heatmap_rank,]
+        z<-RPM_r_df[RPM_r_df$rank %in% input$Heatmap_rank,]
         #print(input$Heatmap_rank)
 
         for(i in 1:nrow(z)){

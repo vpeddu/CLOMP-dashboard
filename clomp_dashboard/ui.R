@@ -16,7 +16,7 @@ ranks <-
   c(
     #"root",
     #"no_rank",
-    #"superkingdom",
+    "superkingdom",
     #"clade",
     "kingdom",
     "phylum",
