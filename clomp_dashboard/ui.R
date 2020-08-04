@@ -11,6 +11,8 @@ library(shiny)
 library(plotly)
 library(shinythemes)
 library(reactable)
+library(sunburstR)
+library(visNetwork)
 
 ranks <-
   c(
@@ -82,6 +84,27 @@ shinyUI(fluidPage(theme = shinytheme("slate"),
         reactableOutput("table")
         )
       
+    ),
+    sidebarLayout( fluid = TRUE,
+                   sidebarPanel( 
+                     width = 3,
+                     selectInput(
+                       "visnetworkSelect",
+                       label = h3("Select sample"),
+                       choices = colnames(comparison_df)[c(5:ncol(comparison_df))]
+                     )
+                    # numericInput("Comparison_threshold", "Minimum RPM threshold for filtering", 10, min = 1),
+                     #uiOutput('phyloRank'),
+                     #checkboxGroupInput('phyloRank', 'Rank', c('D','P','class','O','F','G','S','-'), selected = c('class','G','S','-'), inline = TRUE),
+                    # checkboxGroupInput('phyloRank', 'Rank',ranks, selected = ranks, inline = FALSE),
+                    # radioButtons("normalizeWater", h3(""), choices = list("Include water samples" = 1, "Normalize to water samples" = 2), selected = 1)
+                   ),
+                   mainPanel( 
+                     visNetworkOutput("visnetworkPlot",
+                                      height = "500px", 
+                                      width = '1000px')
+                   )
+                   
     )
 )
 )

@@ -14,7 +14,7 @@ lapply(list.of.packages,library,character.only = TRUE)
 
 #filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
 #filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
-filepath = '/Users/uwvirongs/Downloads/CLOMP-dashboard/test_data_new/'
+filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
 
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
@@ -46,8 +46,8 @@ prep_data<-function(path, taxa_class){
     
     #print(only_clade[,c(1,5:6)])
     final_tsv<-only_clade
-    print('colname')
-    print(colnames(final_tsv))
+    #print('colname')
+    #print(colnames(final_tsv))
     for(i in 5:ncol(only_clade)){ 
         final_tsv[,i]<-only_clade[,i] / ((only_clade[1,i] + only_clade[2,i] ) / 1e6) 
     }
@@ -91,12 +91,12 @@ prep_data<-function(path, taxa_class){
     
     for(f in 1:nrow(final)){
       #print(f)
-    print(temp[,1][which(temp[,2] == final$taxID[f])[1]])  
+    #print(temp[,1][which(temp[,2] == final$taxID[f])[1]])  
       final$rank[f]<-as.character(temp[,1][which(temp[,2] == final$taxID[f])[1]])
       #print(final$rank[f])
       #print(final$taxID[f])
     }
-    print('here')
+    #print('here')
     
     return(final)
 }
@@ -205,26 +205,7 @@ shinyServer(function(input, output) {
     })
    
 
-    
-    
-    
-    
-    
-    
-    
-    # unique_phyla<-unique(comparison_df$rank)
-    # 
-    # output$phyloRank <- renderUI({
-    #   #checkboxGroupInput("selected_samples", "select samples:", choices = colnames(RPM_r_df[5:ncol(RPM_r_df)]), selected = colnames(RPM_r_df[5:ncol(RPM_r_df)]))
-    #   checkboxGroupInput("phyloRank", "select samples:", choices = unique_phyla, selected = unique_phyla, inline = TRUE)
-    # })
-    # 
-    # 
-    # 
-    
-    
-    
-    
+
     
     # MOVE HEATMAP XAXIS TO TOP!
     
@@ -377,14 +358,7 @@ shinyServer(function(input, output) {
     
     comparison_df<-comparison_df[comparison_df$name != 'root',]
     output$table<-renderReactable({
-      #comparison_df$taxa 
-      #comparison_df<-filter_all(any_vars(abs(.) > 0.4))
-      # 
-      # comparison_df<-comparison_df %>% 
-      #   select_if(is.numeric) %>% 
-      #   cor() %>% 
-      #   as.data.frame() %>%
-      #   select_if(funs(any(abs(.) > 0.4)))
+
       to_keep<-function(df, phylogeny, threshold,ranges){ 
         #print(colnames(df))
         #print(unique(df$rank))
@@ -427,7 +401,7 @@ shinyServer(function(input, output) {
       colorpal <- viridis(255,begin=0,end=1)
 
       
-      print(colnames(graph_df))
+      #print(colnames(graph_df))
       GnYlRd <- function(x) rgb(colorRamp(colorpal[c(15:255)])(x), maxColorValue = 255)
       #GnYlRd <- function(x) rgb(colorRamp(c("#63be7b", "#ffeb84", "#f8696b"))(x), maxColorValue = 255)
       reactable(graph_df, 
@@ -436,21 +410,7 @@ shinyServer(function(input, output) {
                     if (!is.numeric(value))
                     {return()}
                     else {
-                    #   normalized <- (value - (as.numeric(input$Comparison_threshold))) / (max(graph_df[,2:ncol(graph_df)]) - min(graph_df[,2:ncol(graph_df)]))
-                    # print("before")
-                    # print(normalized)
-                    # if(( value - (as.numeric(input$Comparison_threshold)))<0){ 
-                    #   normalized = 0
-                    # }
-                    # else{ 
-                    #   normalized = log10(normalized)
-                    #   print("after log")
-                    #   print(normalized)
-                    # }
-                    # if(normalized < 0) {
-                    #   normalized = 0
-                    # }
-                      print(value)
+
                       if (value <= 1) {
                         normalized = 0
                       } else {
@@ -458,8 +418,8 @@ shinyServer(function(input, output) {
                       
                       }
                       
-                      print("that was value")
-                      print(normalized)
+                      #print("that was value")
+                      #print(normalized)
                     }
                     #print(min(graph_df[,2:ncol(graph_df)]))
                     color <- GnYlRd(normalized)
@@ -493,4 +453,166 @@ shinyServer(function(input, output) {
                 ) )
       
     })
+    
+    
+    make_relation<-function(sample){ 
+      
+      temp<-unlist(strsplit(sample, '|', fixed = TRUE))
+      #print(temp)
+      count = 1
+      to<-c()
+      from<-c()
+      if(length(temp) > 10)
+        end = 10
+      else
+        end = length(temp)
+      while(count < end ){ 
+        from<-append(from, temp[count])
+        to<-append(to, temp[count + 1])
+        count = count + 1
+      }
+      df<-data.frame(from = from, to = to)
+      return(df)
+    }
+    
+    
+    # 
+    # output$sunburst<-renderSunburst({
+    #   #col_index = which(colnames(comparison_df) == input$select)
+    #   col_index = 1
+    #   test<-comparison_df[,c(4,col_index)]
+    #   rough<-sapply(test$lineage, make_relation)
+    #   
+    #   all_values<-do.call(rbind, rough)
+    #   all_values<-rownames_to_column(all_values, "lineage")
+    #   all_values<-distinct(all_values,from, to, .keep_all = TRUE)
+    #   
+    #   all_values$lineage<-sapply(strsplit(as.character(all_values$lineage), "\\."), "[[", 1)
+    #   
+    #   merged<-left_join(all_values, test ,by = 'lineage' )
+    #   colnames(merged)[length(colnames(merged))]<-'size'
+    #   
+    #   merged$taxa<-sapply(strsplit(as.character(merged$from), "_"), "[[", 1)
+    #   merged$from<-sapply(strsplit(as.character(merged$from), "_"), "[[", 2)
+    #   merged$to<-sapply(strsplit(as.character(merged$to), "_"), "[[", 2)
+    #   map_colors<-colorRampPalette(viridis(12))
+    #   colors = map_colors(length(unique(merged$taxa)))
+    #   merged$color= NA
+    #   for(i in 1:length(unique(merged$taxa))){ 
+    #     indexes <- which(merged$taxa == unique(merged$taxa)[i])
+    #     merged$color[indexes]<-colors[i]
+    #     }
+    #   
+    #   merged$lineage<-gsub("-_root", "root", merged$lineage)
+    #   #merged$lineage<-gsub('-_','r_', merged$lineage)
+    #   #merged$lineage<-gsub('-_','', merged$lineage)
+    #   #merged$lineage<-gsub('\\|','-', merged$lineage)
+    #   
+    #   sunburst_df<-data.frame(merged$lineage, merged$size)
+    #   sunburst_df<-sunburst_df[order(sunburst_df$merged.lineage),]
+    #   
+    #   sund2b(sunburst_df,
+    #          #count = TRUE,
+    #          #percent = TRUE,
+    #          #height = "2000px",
+    #          #width = "100%"
+    #          # explanation would put the % and count out
+    #          #,explanation = "function(d){return d.data.name}"
+    #   )
+    #   
+    #   #merged<-merged %>% mutate(trimmed = str_replace_all( merged$lineage, '\\|', ""))  
+    #   #merged<-merged %>% mutate(trimmed_final = str_replace_all( merged$trimmed, '_', ""))  
+    #   
+    # #})
+    #   })
+    # 
+    # 
+    
+    
+    
+    
+    
+    make_relation<-function(sample){ 
+      #sample<-data.frame(sample, stringsAsFactors = FALSE)
+      #print((sample))
+      temp<-unlist(strsplit(sample, '|', fixed = TRUE))
+      #print(temp)
+      count = 1
+      to<-c()
+      from<-c()
+      if(length(temp) > 10)
+        end = 10
+      else
+        end = length(temp)
+      while(count < end ){ 
+        from<-append(from, temp[count])
+        to<-append(to, temp[count + 1])
+        count = count + 1
+      }
+      df<-data.frame(from = from, to = to)
+      return(df)
+    }
+    
+    
+    
+    
+    
+    
+    output$visnetworkPlot<-renderVisNetwork({
+      col_index = which(colnames(comparison_df) == input$visnetworkSelect)
+      test<-comparison_df[,c(4,col_index)]
+      rough<-sapply(test$lineage, make_relation)
+      
+      all_values<-do.call(rbind, rough)
+      all_values<-rownames_to_column(all_values, "lineage")
+      all_values<-distinct(all_values,from, to, .keep_all = TRUE)
+      
+      all_values$lineage<-sapply(strsplit(as.character(all_values$lineage), "\\."), "[[", 1)
+      
+      merged<-left_join(all_values, test ,by = 'lineage' )
+      colnames(merged)[length(colnames(merged))]<-'size'
+      
+      merged$taxa<-sapply(strsplit(as.character(merged$from), "_"), "[[", 1)
+      merged$from<-sapply(strsplit(as.character(merged$from), "_"), "[[", 2)
+      merged$to<-sapply(strsplit(as.character(merged$to), "_"), "[[", 2)
+      map_colors<-colorRampPalette(viridis(12))
+      colors = map_colors(length(unique(merged$taxa)))
+      merged$color= NA
+      for(i in 1:length(unique(merged$taxa))){ 
+        indexes <- which(merged$taxa == unique(merged$taxa)[i])
+        merged$color[indexes]<-colors[i]
+        
+      }
+      
+      nodes<-data.frame(id = (merged$from), label = (merged$from), size = merged$size, title = merged$size, color = merged$color)
+      nodes$title <- paste(nodes$id," :RPM = ", round(nodes$title))
+      edges<-data.frame(from = merged$from, to = merged$to)
+      
+      nodes$id<-as.character(nodes$id)
+      uniques<-unique(nodes$id  )
+      keep<-c()
+      for(i in 1:length(uniques)){ 
+        indexes<-which(nodes$id == uniques[i])
+        keep<-append(keep,(indexes[(which.max(nodes$size[indexes]))]))
+        #print(which(nodes$size == max(nodes$size[nodes$id == i])))
+        #keep<-append(keep, which(nodes$size == max(nodes$size[nodes$id == i])))
+      }
+      #print(nodes)
+      
+      nodes<-nodes[keep,]
+      #print(edges)
+      nodes$size[nodes$title <= 1] <- NA
+      nodes$size[nodes$title >= 1] <- nodes$size[nodes$title >= 1] + 3 
+      nodes$size<-log10(nodes$size) ^2
+      visNetwork(nodes = nodes, edges = edges) %>%
+        visLayout(hierarchical = TRUE) %>%
+        visNodes(label = nodes, font = list(color = 'white')) %>% 
+        #visNodes(width)
+        visPhysics(stabilization = FALSE) %>%
+        #  visEdges(smooth = FALSE) %>%
+        visPhysics(solver = "barnesHut")
+      #            hierarchicalRepulsion = list(gravitationalConstant = -200))
+      
+    })
 })
+
