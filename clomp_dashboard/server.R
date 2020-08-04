@@ -534,7 +534,7 @@ shinyServer(function(input, output) {
     
     make_relation<-function(sample){ 
       #sample<-data.frame(sample, stringsAsFactors = FALSE)
-      #print((sample))
+      print(sample)
       temp<-unlist(strsplit(sample, '|', fixed = TRUE))
       #print(temp)
       count = 1
@@ -585,10 +585,17 @@ shinyServer(function(input, output) {
       }
       
       nodes<-data.frame(id = (merged$from), label = (merged$from), size = merged$size, title = merged$size, color = merged$color)
+      nodes$level <- str_count(as.character(merged$lineage), '\\|') 
+      #print(nodes)
+      #print(merged$lineage)
+      
       nodes$title <- paste(nodes$id," :RPM = ", round(nodes$title))
-      edges<-data.frame(from = merged$from, to = merged$to)
+      
+      edges<-data.frame(from = merged$from, to = merged$to, size = merged$size)
       
       nodes$id<-as.character(nodes$id)
+      
+      
       uniques<-unique(nodes$id  )
       keep<-c()
       for(i in 1:length(uniques)){ 
@@ -600,13 +607,24 @@ shinyServer(function(input, output) {
       #print(nodes)
       
       nodes<-nodes[keep,]
+      edges<-edges[complete.cases(edges),]
+      #edges<-which(edges$from[edges$from == edges$to])
+      edges<-edges[-which(edges$from == 'Actinobacteria'),]
       #print(edges)
       nodes$size[nodes$title <= 1] <- NA
-      nodes$size[nodes$title >= 1] <- nodes$size[nodes$title >= 1] + 3 
+      #nodes$size[nodes$title >= 1] <- nodes$size[nodes$title >= 1] + 3 
       nodes$size<-log10(nodes$size) ^2
-      visNetwork(nodes = nodes, edges = edges) %>%
-        visLayout(hierarchical = TRUE) %>%
+      
+      
+      #edges$size <- log10(edges$size)
+      
+      
+      
+      visNetwork(nodes = nodes, edges = edges, width = "100%") %>%
+        #visHierarchicalLayout(levelSeparation = 500) %>%
+        visHierarchicalLayout(sortMethod = 'directed', direction="UD") %>%
         visNodes(label = nodes, font = list(color = 'white')) %>% 
+        #visEdges(width = 10) %>%
         #visNodes(width)
         visPhysics(stabilization = FALSE) %>%
         #  visEdges(smooth = FALSE) %>%
