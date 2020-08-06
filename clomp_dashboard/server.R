@@ -594,7 +594,8 @@ shinyServer(function(input, output) {
       
       nodes<-nodes[complete.cases(nodes$title),]
       edges$size <- log10(edges$size ^ 2 )
-      print(edges$size)
+      #print(edges$size)
+      edges$value <- edges$size
       #print(nodes[nodes$size == 0])
       
       
