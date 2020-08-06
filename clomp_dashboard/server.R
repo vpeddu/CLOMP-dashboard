@@ -14,7 +14,7 @@ lapply(list.of.packages,library,character.only = TRUE)
 
 #filepath  = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data'
 #filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
-filepath = '/Users/gerbix/Documents/vikas/CLOMP/clomp_view/test_data_new'
+filepath = '/Users/uwvirongs/Downloads/CLOMP-dashboard/test_data_new'
 
 # Read and merge pavian TSVs 
 # Returns dafaframe of dataframe of RPM values 
@@ -153,7 +153,6 @@ clean_order<-function(df){
     
     return(df)
 }
-
 
 
 df<-(prep_data(filepath, 'G'))
@@ -398,7 +397,7 @@ shinyServer(function(input, output) {
         graph_df<-rownames_to_column(graph_df, var = 'name')
       }
       
-      colorpal <- viridis(255,begin=0,end=1)
+      colorpal <- viridis(255,begin=0,end=1,option="D")
 
       
       #print(colnames(graph_df))
@@ -455,27 +454,6 @@ shinyServer(function(input, output) {
     })
     
     
-    make_relation<-function(sample){ 
-      
-      temp<-unlist(strsplit(sample, '|', fixed = TRUE))
-      #print(temp)
-      count = 1
-      to<-c()
-      from<-c()
-      if(length(temp) > 10)
-        end = 10
-      else
-        end = length(temp)
-      while(count < end ){ 
-        from<-append(from, temp[count])
-        to<-append(to, temp[count + 1])
-        count = count + 1
-      }
-      df<-data.frame(from = from, to = to)
-      return(df)
-    }
-    
-    
     # 
     # output$sunburst<-renderSunburst({
     #   #col_index = which(colnames(comparison_df) == input$select)
@@ -528,13 +506,9 @@ shinyServer(function(input, output) {
     # 
     # 
     
-    
-    
-    
-    
+
     make_relation<-function(sample){ 
       #sample<-data.frame(sample, stringsAsFactors = FALSE)
-      print(sample)
       temp<-unlist(strsplit(sample, '|', fixed = TRUE))
       #print(temp)
       count = 1
@@ -554,10 +528,6 @@ shinyServer(function(input, output) {
     }
     
     
-    
-    
-    
-    
     output$visnetworkPlot<-renderVisNetwork({
       col_index = which(colnames(comparison_df) == input$visnetworkSelect)
       test<-comparison_df[,c(4,col_index)]
@@ -575,7 +545,14 @@ shinyServer(function(input, output) {
       merged$taxa<-sapply(strsplit(as.character(merged$from), "_"), "[[", 1)
       merged$from<-sapply(strsplit(as.character(merged$from), "_"), "[[", 2)
       merged$to<-sapply(strsplit(as.character(merged$to), "_"), "[[", 2)
-      map_colors<-colorRampPalette(viridis(12))
+      
+      merged<-merged[merged$size > 1,]
+      
+      
+      colorpal2 <- viridis(200,begin=0,end=1,option="B")
+      colorpal2 <- colorpal2[20:200]
+      map_colors<-colorRampPalette(colorpal2)
+      
       colors = map_colors(length(unique(merged$taxa)))
       merged$color= NA
       for(i in 1:length(unique(merged$taxa))){ 
@@ -584,7 +561,7 @@ shinyServer(function(input, output) {
         
       }
       
-      nodes<-data.frame(id = (merged$from), label = (merged$from), size = merged$size, title = merged$size, color = merged$color)
+      nodes<-data.frame(id = (merged$to), label = (merged$to), size = merged$size, title = merged$size, color = merged$color)
       nodes$level <- str_count(as.character(merged$lineage), '\\|') 
       #print(nodes)
       #print(merged$lineage)
@@ -609,14 +586,16 @@ shinyServer(function(input, output) {
       nodes<-nodes[keep,]
       edges<-edges[complete.cases(edges),]
       #edges<-which(edges$from[edges$from == edges$to])
-      edges<-edges[-which(edges$from == 'Actinobacteria'),]
+      #edges<-edges[-which(edges$from == 'Actinobacteria'),]
       #print(edges)
       nodes$size[nodes$title <= 1] <- NA
       #nodes$size[nodes$title >= 1] <- nodes$size[nodes$title >= 1] + 3 
       nodes$size<-log10(nodes$size) ^2
       
-      
-      #edges$size <- log10(edges$size)
+      nodes<-nodes[complete.cases(nodes$title),]
+      edges$size <- log10(edges$size ^ 2 )
+      print(edges$size)
+      #print(nodes[nodes$size == 0])
       
       
       
@@ -624,7 +603,7 @@ shinyServer(function(input, output) {
         #visHierarchicalLayout(levelSeparation = 500) %>%
         visHierarchicalLayout(sortMethod = 'directed', direction="UD") %>%
         visNodes(label = nodes, font = list(color = 'white')) %>% 
-        #visEdges(width = 10) %>%
+        #visEdges(value= edges$size , scaling = list(edges$size)) %>%
         #visNodes(width)
         visPhysics(stabilization = FALSE) %>%
         #  visEdges(smooth = FALSE) %>%

@@ -101,8 +101,8 @@ shinyUI(fluidPage(theme = shinytheme("slate"),
                    ),
                    mainPanel( 
                      visNetworkOutput("visnetworkPlot",
-                                      height = "500px", 
-                                      width = '1000px')
+                                      height = "800px", 
+                                      width = '1200px')
                    )
                    
     )
